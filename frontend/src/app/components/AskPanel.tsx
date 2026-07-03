@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { AskResult } from '@/lib/api'
+import { formatCell } from '@/lib/formatNumber'
 import { Stub, StubButton } from './Stub'
 
 interface AskPanelProps {
@@ -23,10 +24,10 @@ export function AskPanel({ canAsk, loading, error, result, onAsk }: AskPanelProp
   }
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-4">
       <h2 className="text-sm font-semibold text-gray-900">Ask a question</h2>
 
-      <form onSubmit={submit} className="space-y-2">
+      <form onSubmit={submit} className="space-y-3">
         <div className="flex items-center gap-2 text-[11px] text-gray-400">
           <StubButton label="Streaming" phase="Phase 2" />
         </div>
@@ -86,7 +87,7 @@ function AnswerCard({ result }: { result: AskResult }) {
   return (
     <div
       data-testid="answer-card"
-      className={`space-y-4 rounded-xl border bg-white p-5 shadow-sm ${
+      className={`space-y-5 rounded-xl border bg-white p-6 shadow-sm ${
         failed ? 'border-red-200' : 'border-gray-200'
       }`}
     >
@@ -183,7 +184,7 @@ function ResultTable({ table }: { table: NonNullable<AskResult['result_table']> 
         <thead className="bg-gray-50 text-gray-500">
           <tr>
             {table.columns.map((c) => (
-              <th key={c} className="px-3 py-2 font-medium">
+              <th key={c} className="px-4 py-2.5 font-medium">
                 {c}
               </th>
             ))}
@@ -193,8 +194,8 @@ function ResultTable({ table }: { table: NonNullable<AskResult['result_table']> 
           {rows.map((row, i) => (
             <tr key={i} className="border-t border-gray-100">
               {row.map((cell, j) => (
-                <td key={j} className="px-3 py-1.5 font-mono text-gray-700">
-                  {cell === null ? '—' : String(cell)}
+                <td key={j} className="px-4 py-2 font-mono text-gray-700">
+                  {formatCell(cell, table.columns[j])}
                 </td>
               ))}
             </tr>

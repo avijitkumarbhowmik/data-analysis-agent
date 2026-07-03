@@ -119,7 +119,7 @@ export default function Home() {
       />
 
       <main className="flex-1 overflow-y-auto bg-gray-50">
-        <div className="mx-auto max-w-3xl px-6 py-8">
+        <div className="mx-auto max-w-3xl px-8 py-10">
           {listError && (
             <div
               data-testid="list-error"
@@ -132,7 +132,7 @@ export default function Home() {
           {!selected ? (
             <EmptyState hasWorkspaces={workspaces.length > 0} />
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-10">
               <header>
                 <h1 className="text-xl font-semibold tracking-tight text-gray-900" data-testid="workspace-title">
                   {selected.name}

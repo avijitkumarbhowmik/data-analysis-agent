@@ -20,7 +20,7 @@ export function DatasetPanel({ dataset, uploading, error, onUpload }: DatasetPan
   }
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-gray-900">Dataset</h2>
         <div className="flex items-center gap-2">
@@ -88,7 +88,7 @@ export function DatasetPanel({ dataset, uploading, error, onUpload }: DatasetPan
 function SchemaPreview({ dataset }: { dataset: DatasetSummary }) {
   const pii = dataset.pii_columns ?? []
   return (
-    <div data-testid="schema-preview" className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div data-testid="schema-preview" className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-sm font-medium text-gray-900" data-testid="dataset-filename">
@@ -110,7 +110,7 @@ function SchemaPreview({ dataset }: { dataset: DatasetSummary }) {
         )}
       </div>
 
-      <div className="mt-3 overflow-x-auto">
+      <div className="mt-4 overflow-x-auto">
         <table className="w-full text-left text-xs" data-testid="schema-table">
           <thead>
             <tr className="border-b border-gray-100 text-gray-400">
@@ -140,7 +140,7 @@ function SchemaPreview({ dataset }: { dataset: DatasetSummary }) {
         </table>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-4">
         <Stub title="Data-quality checks" phase="Phase 2" compact>
           Nulls, duplicates, and outlier flags will appear here.
         </Stub>
