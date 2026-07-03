@@ -16,3 +16,9 @@ build/
 *.db-shm
 *.db-wal
 data/
+
+# Editor / build artifacts
+.vscode/
+frontend/test-results/
+frontend/out/
+*.tsbuildinfo
