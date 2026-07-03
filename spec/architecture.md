@@ -94,7 +94,7 @@ SQLite via SQLAlchemy 2.0 + Alembic. Tables: `workspaces`, `datasets`, `runs` (q
 
 - **Language:** Python 3.12+ (backend), TypeScript (frontend).
 - **Agent framework:** LangGraph (already wired in the boilerplate — extended in place).
-- **LLM provider + model:** Google Gemini, `gemini-2.5-flash`, pinned via `AGENT_LLM_MODEL` in `.env`.
+- **LLM provider + model:** Google Gemini, `gemini-2.5-flash`, pinned via `AGENT_LLM_MODEL` in `.env`. The provider/client surfaces per-call token usage (Phase 2 cost). Cost rates are settings: `AGENT_GEMINI_INPUT_USD_PER_1K` / `AGENT_GEMINI_OUTPUT_USD_PER_1K` (non-zero defaults; owned by `backend-enrich` in `src/config/settings.py`).
 - **Backend:** FastAPI, served with the boilerplate's `uv run python -m src` on port 8001.
 - **Database + ORM:** SQLite (`sqlite:///./data/agent.db`) + SQLAlchemy 2.0 + Alembic. Schema kept Postgres-portable.
 - **Frontend:** Next.js 15 (static export → `frontend/out`) + React 19 + Tailwind, mounted by FastAPI at `/app` (single origin).

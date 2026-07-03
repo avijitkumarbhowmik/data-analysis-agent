@@ -88,8 +88,9 @@ test('Phase 1: later-phase surfaces are present as labelled, disabled stubs', as
   await page.getByTestId('workspace-create-submit').click()
   await expect(page.getByTestId('workspace-title')).toHaveText(workspaceName)
 
-  // Run-history and notes stubs are always present in an open workspace.
-  const stubTitles = ['Run history', 'Notes & business rules']
+  // The notes stub is always present in an open workspace. (Run history became a
+  // real, non-stub panel in Phase 2 — see phase2.spec.ts.)
+  const stubTitles = ['Notes & business rules']
   for (const title of stubTitles) {
     const stub = page.locator(`[data-testid="stub"][data-stub-title="${title}"]`)
     await expect(stub).toBeVisible()

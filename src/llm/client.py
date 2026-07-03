@@ -33,3 +33,7 @@ class LLMClient:
 
     def call_model(self, prompt: str, *, system: str | None = None) -> str:
         return self._provider.call_model(prompt, system=system)
+
+    def call_with_usage(self, prompt: str, *, system: str | None = None) -> tuple[str, dict]:
+        """Return ``(text, {"input_tokens", "output_tokens"})`` for cost accounting."""
+        return self._provider.call_with_usage(prompt, system=system)

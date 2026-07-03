@@ -36,6 +36,33 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# --- conversation memory (Phase 2) ----------------------------------------
+
+_MAX_HISTORY_MESSAGES = 10  # bounded turns (~5 Q/A pairs) injected into prompts
+
+
+def _format_history(messages: Any) -> str:
+    """Render prior turns (``[{role, content}]``) into a masked prompt preamble.
+
+    Only the plain-language question + answer text of prior turns is carried —
+    never raw rows (answers/questions are already user-facing prose). Enables a
+    follow-up pronoun ("those regions", "that total") to resolve to its subject.
+    """
+    msgs = [m for m in (messages or []) if isinstance(m, dict) and str(m.get("content") or "").strip()]
+    if not msgs:
+        return ""
+    lines = []
+    for m in msgs[-_MAX_HISTORY_MESSAGES:]:
+        role = str(m.get("role") or "user").lower()
+        label = "User" if role == "user" else "Assistant"
+        lines.append(f"{label}: {str(m.get('content')).strip()}")
+    return (
+        "Prior conversation in this workspace (oldest first) — use it to resolve "
+        "references like 'those', 'that', 'them', 'now filter to …':\n"
+        + "\n".join(lines)
+    )
+
+
 # --- result serialization (REAL data → user; never sent to the LLM) --------
 
 def _clean_cell(value: Any) -> Any:
@@ -161,6 +188,11 @@ def generate_code(state: AgentState) -> AgentState:
             "",
             "Masked schema, statistics, and sample rows:",
             state.get("schema_summary", ""),
+        ]
+        history = _format_history(state.get("messages"))
+        if history:
+            parts += ["", history]
+        parts += [
             "",
             f"Question: {state['question']}",
         ]
@@ -240,7 +272,10 @@ def compose_answer(state: AgentState) -> AgentState:
     """REAL. Turn the MASKED result preview into plain-language prose via Gemini."""
     try:
         system = _load_prompt("compose_answer.md")
+        history = _format_history(state.get("messages"))
+        history_block = f"{history}\n\n" if history else ""
         user_prompt = (
+            f"{history_block}"
             f"Question: {state['question']}\n\n"
             f"Computed result (masked preview):\n{state.get('execution_result', '(no result)')}"
         )
@@ -253,8 +288,101 @@ def compose_answer(state: AgentState) -> AgentState:
 
 
 def enrich(state: AgentState) -> AgentState:
-    """STUB in Phase 1 — no-op. REAL in Phase 2 (charts, quality, followups, cost)."""
-    return state
+    """REAL in Phase 2. Best-effort: chart_spec, data-quality flags, follow-ups, cost.
+
+    Every sub-step DEGRADES independently — a failure logs and continues; the answer
+    is never blocked. Every number in ``chart_spec`` comes from the REAL result_table
+    (privacy-safe: it is the aggregate the user already sees); the LLM sees only the
+    masked result shape / masked schema.
+    """
+    import json as _json
+
+    from analysis import charts as _charts
+    from analysis import cost as _cost
+    from analysis import quality as _quality
+
+    run_id = state.get("run_id")
+    question = state.get("question", "")
+    ws = state.get("workspace_id", "")
+    result_table = state.get("result_table")
+
+    usage_total = {"input_tokens": 0, "output_tokens": 0}
+    chart_spec: dict | None = None
+    data_quality_flags: list = []
+    followups: list = []
+
+    # --- chart spec (deterministic; LLM only hints kind/roles) ----------
+    try:
+        client = LLMClient()
+    except Exception as exc:  # noqa: BLE001 — no provider → skip all LLM sub-steps
+        _log.error("enrich_no_llm", run_id=run_id, error=str(exc))
+        client = None
+
+    try:
+        chart_spec, usage = _charts.build_chart_spec(result_table, question, llm=client)
+        _cost.accumulate(usage_total, usage)
+    except Exception as exc:  # noqa: BLE001
+        _log.error("enrich_chart_error", run_id=run_id, error=str(exc))
+        chart_spec = None
+
+    # --- data-quality flags (100% local; no LLM) ------------------------
+    try:
+        frames = _ensure_loaded(ws)
+        if frames:
+            primary = "df" if "df" in frames else next(iter(frames))
+            df = frames[primary]
+            touched: list[str] = []
+            cols = (result_table or {}).get("columns") or []
+            code = state.get("generated_code") or ""
+            for c in df.columns:
+                cs = str(c)
+                if cs in {str(x) for x in cols} or cs in code:
+                    touched.append(cs)
+            data_quality_flags = _quality.profile(df, touched)
+    except Exception as exc:  # noqa: BLE001
+        _log.error("enrich_quality_error", run_id=run_id, error=str(exc))
+        data_quality_flags = []
+
+    # --- follow-up suggestions (LLM, masked inputs only) ----------------
+    if client is not None:
+        try:
+            system = _load_prompt("followups.md")
+            user_prompt = (
+                f"Question: {question}\n\n"
+                f"Masked schema:\n{state.get('schema_summary', '')}\n\n"
+                f"Masked result preview:\n{state.get('execution_result', '(no result)')}"
+            )
+            text, usage = client.call_with_usage(user_prompt, system=system)
+            _cost.accumulate(usage_total, usage)
+            match = re.search(r"\[.*\]", text or "", re.DOTALL)
+            parsed = _json.loads(match.group(0)) if match else []
+            followups = [str(q).strip() for q in parsed if str(q).strip()][:3]
+        except Exception as exc:  # noqa: BLE001
+            _log.error("enrich_followups_error", run_id=run_id, error=str(exc))
+            followups = []
+
+    # --- cost (from accumulated token usage x settings rates) -----------
+    try:
+        cost = _cost.compute_cost(usage_total["input_tokens"], usage_total["output_tokens"])
+    except Exception as exc:  # noqa: BLE001
+        _log.error("enrich_cost_error", run_id=run_id, error=str(exc))
+        cost = None
+
+    _log.info(
+        "enrich",
+        run_id=run_id,
+        chart_kind=(chart_spec or {}).get("kind"),
+        quality_flags=len(data_quality_flags),
+        followups=len(followups),
+        cost_usd=(cost or {}).get("usd"),
+    )
+    return {
+        **state,
+        "chart_spec": chart_spec,
+        "data_quality_flags": data_quality_flags,
+        "followups": followups,
+        "cost": cost,
+    }
 
 
 def finalize(state: AgentState) -> AgentState:
@@ -271,6 +399,11 @@ def finalize(state: AgentState) -> AgentState:
                 run.result_preview = state.get("execution_result")
                 run.answer = answer
                 run.output_text = answer
+                # Phase 2 enrichment columns (already present on RunRow — no migration).
+                run.chart_spec_json = state.get("chart_spec")
+                run.data_quality_json = state.get("data_quality_flags") or []
+                run.followups_json = state.get("followups") or []
+                run.cost_json = state.get("cost")
                 run.attempts = int(state.get("attempts", 1) or 1)
                 run.status = "completed"
                 run.completed_at = _now()

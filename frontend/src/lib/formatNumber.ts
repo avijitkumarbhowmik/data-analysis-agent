@@ -27,6 +27,31 @@ function looksLikePercentColumn(columnName?: string): boolean {
   return !!columnName && PERCENT_HINT.test(columnName)
 }
 
+// Percent formatter with up to 1 decimal, for chart_spec fractions (0..1).
+const FRACTION_PERCENT = new Intl.NumberFormat('en-US', {
+  style: 'percent',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+})
+
+/**
+ * Format a chart_spec value (a fraction 0..1) as a percentage, e.g.
+ * 0.178 -> "17.8%". Used by KPI tiles, bar labels, and axis ticks.
+ */
+export function formatFraction(value: number): string {
+  if (!Number.isFinite(value)) return String(value)
+  return FRACTION_PERCENT.format(value)
+}
+
+/**
+ * Format a KPI value per its declared format: "percent" treats the value as a
+ * 0..1 fraction; "number" groups it with thousands separators.
+ */
+export function formatKpiValue(value: number, format: 'percent' | 'number'): string {
+  if (format === 'percent') return formatFraction(value)
+  return GROUPED.format(value)
+}
+
 /** Format a single numeric value, optionally using its column name as a hint. */
 export function formatNumericValue(value: number, columnName?: string): string {
   if (!Number.isFinite(value)) return String(value)

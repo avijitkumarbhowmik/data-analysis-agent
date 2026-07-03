@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:e2e": "playwright test tests/e2e/phase1.spec.ts"
+    "test:e2e": "playwright test tests/e2e/"
   },
   "engines": {
     "node": ">=20.0.0"

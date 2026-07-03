@@ -31,22 +31,28 @@ Phase legend: **[P1]** real in Phase 1 · **[P2]** Phase 2 · **[P3]** Phase 3.
 **Response:** `{ "data": { "id", "name", "filename", "row_count", "column_count", "schema": [ {name,dtype,stats} ], "pii_columns": ["name","pan"] } }`
 **Errors:** 400 (unsupported type / unparseable), 413 (too large), 500.
 
-### `POST /workspaces/{id}/ask`  **[P1]**
-**Purpose:** Ask a plain-language question; run the agent; return the answer + exact code + result.
-**Request:** `{ "question": "What is the total outstanding principal?", "dataset_id": "uuid" | null }`
-**Response:** `{ "data": { "run_id", "answer", "generated_code", "result_table": {columns, rows}, "status", "attempts", "chart_spec"?: {...}, "data_quality_flags"?: [...], "followups"?: [...], "cost"?: {...}, "clarifying_question"?: "…" } }` — the `?` fields are populated from Phase 2/3.
+### `POST /workspaces/{id}/ask`  **[P1, enriched in P2]**
+**Purpose:** Ask a plain-language question; run the agent; return the answer + exact code + result + Phase-2 enrichments.
+**Request:** `{ "question": "show the payment-mode mix by region", "dataset_id": "uuid" | null }`
+**Response:** `{ "data": { "run_id", "answer", "generated_code", "result_table": {columns, rows}, "status", "attempts", "chart_spec": {…}|null, "data_quality_flags": [...], "followups": [...], "cost": {…}, "clarifying_question"?: "…" } }`
+- **[P2]** `chart_spec`, `data_quality_flags`, `followups`, `cost` are now **always present** on a successful run (each may be `null`/`[]` when not applicable). See the JSON shapes at the bottom of this file. `clarifying_question` remains **[P3]**.
 **Errors:** 400 (no dataset in workspace), 404, 500 (run failed → `status: "failed"`, message in `answer`/`error`).
 
 ### `POST /workspaces/{id}/ask/stream`  **[P2]**
-**Purpose:** Same as `/ask` but streams the answer via Server-Sent Events (token/section deltas, then a final event with code + result + enrichments).
+**Purpose:** Same as `/ask` but streams via Server-Sent Events. Owned by `backend-history-conversation` (`src/api/ask.py`).
+**Request:** same body as `/ask`.
+**Response:** `Content-Type: text/event-stream`:
+- `event: delta` / `data: {"text": "<answer fragment>"}` — zero or more, streamed as the answer composes.
+- `event: final` / `data:` = the **same JSON object** the non-streaming `/ask` returns under `data` (with `chart_spec`, `data_quality_flags`, `followups`, `cost`). Exactly one, terminal.
+- `event: error` / `data: {"message": "…"}` on mid-stream failure → the frontend degrades to non-streaming `/ask`.
 
 ### `GET /workspaces/{id}/runs`  **[P2]**
-**Purpose:** Full run history for the workspace (query + code + result + timestamps), revisitable.
-**Response:** `{ "data": [ { "id", "question", "answer", "generated_code", "result_table", "cost", "created_at" } ] }`
+**Purpose:** Run-history list for the workspace, newest-first. Owned by `backend-history-conversation` (`src/api/history.py`).
+**Response:** `{ "data": [ { "id", "question", "status", "created_at", "has_chart": bool } ] }` (`has_chart` = `chart_spec_json` non-null).
 
-### `GET /runs/{run_id}`  **[P1 — boilerplate]**
-**Purpose:** Fetch one run's full detail.
-**Response:** `{ "data": { "run_id", "status", "question", "answer", "generated_code", "result_preview" } }`
+### `GET /runs/{run_id}`  **[P1 — boilerplate, extended in P2]**
+**Purpose:** Fetch one run's full, revisitable detail. Owned by `backend-history-conversation` (`src/api/history.py`).
+**Response [P2]:** `{ "data": { "run_id", "status", "question", "answer", "generated_code", "attempts", "result_table": {columns, rows}, "chart_spec": {…}|null, "data_quality_flags": [...], "followups": [...], "cost": {…} } }`
 **Errors:** 404.
 
 ### `POST /workspaces/{id}/notes`  **[P3]**
@@ -68,6 +74,36 @@ Phase legend: **[P1]** real in Phase 1 · **[P2]** Phase 2 · **[P3]** Phase 3.
 
 ### `GET /health`  **[P1 — boilerplate]**
 Liveness check.
+
+## Phase 2 shared JSON shapes (authoritative — backend + frontend build to these)
+
+Full details in the capability files; the canonical shapes:
+
+```jsonc
+// chart_spec — see spec/capabilities/chart-generation.md for the palette + rules
+chart_spec = null | {
+  "kind": "dashboard" | "line" | "bar",
+  "title": string, "subtitle": string,
+  "series": [ { "key": string, "label": string } ],
+  "kpis":   [ { "label": string, "value": number, "format": "percent"|"number",
+               "seriesKey": string|null, "emphasis": boolean } ],
+  "charts": [ { "heading": string, "axisLabel": string,
+               "categories": [ { "label": string, "total": number,
+                                 "segments": { "<seriesKey>": number } } ] } ],
+  // kind == "line" replaces `charts` with:
+  "points": [ { "x": string|number, "y": number, "series"?: string } ]
+}
+// values in kpis[].value / categories[].total / segments are fractions 0..1 (rendered as %)
+
+// cost — usd = in/1000*RATE_IN + out/1000*RATE_OUT (rates in settings, non-zero defaults)
+cost = { "input_tokens": int, "output_tokens": int, "usd": float }   // usd > 0
+
+// data_quality_flags
+data_quality_flags = [ { "level": "info"|"warn", "column": string|null, "message": string } ]
+
+// followups — 2..3 plain-language question strings (or [] on degrade)
+followups = [ string, string, ... ]
+```
 
 ## Authentication
 
