@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     anthropic_api_key: str = Field(default="")
     gemini_api_key: str = Field(default="")
 
+    # Per-query cost rates (Phase 2). gemini-2.5-flash pricing, USD per 1k tokens.
+    # Defaults: input ~$0.075 / 1M tokens, output ~$0.30 / 1M tokens.
+    # Read from AGENT_GEMINI_INPUT_USD_PER_1K / AGENT_GEMINI_OUTPUT_USD_PER_1K.
+    gemini_input_usd_per_1k: float = Field(default=0.000075)
+    gemini_output_usd_per_1k: float = Field(default=0.0003)
+
 
 _settings: Settings | None = None
 

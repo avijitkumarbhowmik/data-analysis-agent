@@ -13,11 +13,23 @@ A capability is a single, discrete action or behavior the agent performs. Exampl
 
 ## Capabilities in This Project
 
-<!-- FILL IN: List capabilities here as they are defined. Each entry links to its spec file (no number prefix). -->
-
-| Capability | File |
-|-----------|------|
-| <!-- name --> | [name.md](name.md) |
+| Capability | Phase | File |
+|-----------|-------|------|
+| Workspace Management | 1 | [workspace-management.md](workspace-management.md) |
+| Dataset Upload | 1 | [dataset-upload.md](dataset-upload.md) |
+| PII Masking (Privacy Boundary) | 1 | [pii-masking.md](pii-masking.md) |
+| Local Code Analysis (the Ask loop) | 1 | [local-code-analysis.md](local-code-analysis.md) |
+| Chart Generation | 2 | [chart-generation.md](chart-generation.md) |
+| Data-Quality Flags | 2 | [data-quality-flags.md](data-quality-flags.md) |
+| Follow-up Suggestions | 2 | [followup-suggestions.md](followup-suggestions.md) |
+| Conversation Memory | 2 | [conversation-memory.md](conversation-memory.md) |
+| Run History | 2 | [run-history.md](run-history.md) |
+| Live Query Feedback (Streaming + Cost) | 2 | [live-query-feedback.md](live-query-feedback.md) |
+| Multi-File Joins | 3 | [multi-file-joins.md](multi-file-joins.md) |
+| Multi-Sheet Excel | 3 | [multi-sheet-excel.md](multi-sheet-excel.md) |
+| Column Notes & Business Rules | 3 | [column-notes-and-rules.md](column-notes-and-rules.md) |
+| Derived Datasets & Exports | 3 | [derived-datasets-and-exports.md](derived-datasets-and-exports.md) |
+| Adaptive Reasoning (Clarify + Plan + Iterate) | 3 | [adaptive-reasoning.md](adaptive-reasoning.md) |
 
 ## How to Add a New Capability
 
